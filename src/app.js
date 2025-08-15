@@ -11,8 +11,8 @@ app.use(express.json());
 
 // Welcome route
 app.get('/', (req, res) => {
-  res.json({ 
-    message: 'Welcome to the Task Management API'
+  res.json({
+    message: 'Welcome to the Task Management API',
   });
 });
 
@@ -24,7 +24,7 @@ app.use((err, req, res, next) => {
   console.error(err.stack);
   res.status(500).json({
     error: 'Something went wrong!',
-    message: err.message
+    message: err.message,
   });
 });
 
@@ -32,7 +32,7 @@ app.use((err, req, res, next) => {
 app.use((req, res) => {
   res.status(404).json({
     error: 'Not Found',
-    message: 'The requested resource was not found'
+    message: 'The requested resource was not found',
   });
 });
 

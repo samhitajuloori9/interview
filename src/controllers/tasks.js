@@ -7,12 +7,12 @@ let nextId = 1;
 
 // Helper function for filtering tasks
 const filterTasks = (tasks, filters) => {
-  return Array.from(tasks.values()).filter(task => {
+  return Array.from(tasks.values()).filter((task) => {
     if (filters.status && task.status !== filters.status) return false;
     if (filters.priority && task.priority !== filters.priority) return false;
     if (filters.dueDateStart && task.dueDate < new Date(filters.dueDateStart)) return false;
     if (filters.dueDateEnd && task.dueDate > new Date(filters.dueDateEnd)) return false;
-    if (filters.tags && !filters.tags.some(tag => task.tags.includes(tag))) return false;
+    if (filters.tags && !filters.tags.some((tag) => task.tags.includes(tag))) return false;
     return true;
   });
 };
@@ -49,14 +49,14 @@ exports.getTasks = async (req, res) => {
     const endIndex = page * limit;
 
     const paginatedTasks = filteredTasks.slice(startIndex, endIndex);
-    
+
     res.json({
       tasks: paginatedTasks,
       pagination: {
         total: filteredTasks.length,
         page,
-        pages: Math.ceil(filteredTasks.length / limit)
-      }
+        pages: Math.ceil(filteredTasks.length / limit),
+      },
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -98,13 +98,14 @@ exports.deleteTask = async (req, res) => {
   }
 
   // Check if task is a dependency for other tasks
-  const dependentTasks = Array.from(tasks.values())
-    .filter(task => task.dependencies.includes(taskId));
+  const dependentTasks = Array.from(tasks.values()).filter((task) =>
+    task.dependencies.includes(taskId)
+  );
 
   if (dependentTasks.length > 0) {
     return res.status(400).json({
       error: 'Task has dependencies',
-      message: 'Cannot delete task that is a dependency for other tasks'
+      message: 'Cannot delete task that is a dependency for other tasks',
     });
   }
 
@@ -119,9 +120,10 @@ exports.searchTasks = async (req, res) => {
     return res.status(400).json({ error: 'Search query is required' });
   }
 
-  const searchResults = Array.from(tasks.values()).filter(task =>
-    task.title.toLowerCase().includes(query.toLowerCase()) ||
-    task.description.toLowerCase().includes(query.toLowerCase())
+  const searchResults = Array.from(tasks.values()).filter(
+    (task) =>
+      task.title.toLowerCase().includes(query.toLowerCase()) ||
+      task.description.toLowerCase().includes(query.toLowerCase())
   );
 
   res.json(searchResults);
@@ -142,7 +144,7 @@ exports.batchCreateTasks = async (req, res) => {
     }
 
     // If all validations pass, save the tasks
-    createdTasks.forEach(task => tasks.set(task.id, task));
+    createdTasks.forEach((task) => tasks.set(task.id, task));
     res.status(201).json(createdTasks);
   } catch (error) {
     res.status(400).json({ error: error.message });
@@ -152,22 +154,23 @@ exports.batchCreateTasks = async (req, res) => {
 // Analytics endpoints
 exports.getCompletionRate = async (req, res) => {
   const allTasks = Array.from(tasks.values());
-  const completedTasks = allTasks.filter(task => task.status === TaskStatus.COMPLETED);
-  
+  const completedTasks = allTasks.filter((task) => task.status === TaskStatus.COMPLETED);
+
   const completionRate = (completedTasks.length / allTasks.length) * 100;
-  
+
   res.json({
     total: allTasks.length,
     completed: completedTasks.length,
-    completionRate: `${completionRate.toFixed(2)}%`
+    completionRate: `${completionRate.toFixed(2)}%`,
   });
 };
 
 exports.getAverageCompletionTime = async (req, res) => {
-  const completedTasks = Array.from(tasks.values())
-    .filter(task => task.status === TaskStatus.COMPLETED);
+  const completedTasks = Array.from(tasks.values()).filter(
+    (task) => task.status === TaskStatus.COMPLETED
+  );
 
-  const completionTimes = completedTasks.map(task => {
+  const completionTimes = completedTasks.map((task) => {
     const createdDate = new Date(task.createdAt);
     const completedDate = new Date(task.updatedAt);
     return differenceInDays(completedDate, createdDate);
@@ -177,15 +180,15 @@ exports.getAverageCompletionTime = async (req, res) => {
 
   res.json({
     averageCompletionTime: `${averageTime.toFixed(1)} days`,
-    totalTasksCompleted: completedTasks.length
+    totalTasksCompleted: completedTasks.length,
   });
 };
 
 exports.getPopularTags = async (req, res) => {
   const tagCount = new Map();
-  
-  Array.from(tasks.values()).forEach(task => {
-    task.tags.forEach(tag => {
+
+  Array.from(tasks.values()).forEach((task) => {
+    task.tags.forEach((tag) => {
       tagCount.set(tag, (tagCount.get(tag) || 0) + 1);
     });
   });

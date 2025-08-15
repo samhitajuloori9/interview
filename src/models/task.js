@@ -5,13 +5,13 @@ const TaskStatus = {
   PENDING: 'pending',
   IN_PROGRESS: 'in-progress',
   COMPLETED: 'completed',
-  ARCHIVED: 'archived'
+  ARCHIVED: 'archived',
 };
 
 const TaskPriority = {
   LOW: 'low',
   MEDIUM: 'medium',
-  HIGH: 'high'
+  HIGH: 'high',
 };
 
 // Valid status transitions
@@ -19,7 +19,7 @@ const VALID_STATUS_TRANSITIONS = {
   [TaskStatus.PENDING]: [TaskStatus.IN_PROGRESS],
   [TaskStatus.IN_PROGRESS]: [TaskStatus.COMPLETED],
   [TaskStatus.COMPLETED]: [TaskStatus.ARCHIVED],
-  [TaskStatus.ARCHIVED]: []
+  [TaskStatus.ARCHIVED]: [],
 };
 
 class Task {
@@ -31,7 +31,7 @@ class Task {
     status = TaskStatus.PENDING,
     priority = TaskPriority.MEDIUM,
     tags = [],
-    dependencies = []
+    dependencies = [],
   }) {
     this.id = id;
     this.title = title;
@@ -84,5 +84,5 @@ module.exports = {
   Task,
   TaskStatus,
   TaskPriority,
-  VALID_STATUS_TRANSITIONS
+  VALID_STATUS_TRANSITIONS,
 };

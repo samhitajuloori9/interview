@@ -4,9 +4,8 @@ const app = require('../src/app');
 describe('API Endpoints', () => {
   describe('GET /', () => {
     it('should return welcome message', async () => {
-      const res = await request(app)
-        .get('/');
-      
+      const res = await request(app).get('/');
+
       expect(res.statusCode).toBe(200);
       expect(res.body).toHaveProperty('message');
     });

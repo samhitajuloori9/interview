@@ -9,11 +9,11 @@ exports.getAllItems = (req, res) => {
 
 // GET single item by ID
 exports.getItemById = (req, res) => {
-  const item = items.find(i => i.id === parseInt(req.params.id));
+  const item = items.find((i) => i.id === parseInt(req.params.id));
   if (!item) {
     return res.status(404).json({
       error: 'Not Found',
-      message: 'Item not found'
+      message: 'Item not found',
     });
   }
   res.json(item);
@@ -25,20 +25,20 @@ exports.createItem = (req, res) => {
     id: nextId++,
     name: req.body.name,
     description: req.body.description,
-    createdAt: new Date()
+    createdAt: new Date(),
   };
-  
+
   items.push(newItem);
   res.status(201).json(newItem);
 };
 
 // PUT update item
 exports.updateItem = (req, res) => {
-  const itemIndex = items.findIndex(i => i.id === parseInt(req.params.id));
+  const itemIndex = items.findIndex((i) => i.id === parseInt(req.params.id));
   if (itemIndex === -1) {
     return res.status(404).json({
       error: 'Not Found',
-      message: 'Item not found'
+      message: 'Item not found',
     });
   }
 
@@ -46,7 +46,7 @@ exports.updateItem = (req, res) => {
     ...items[itemIndex],
     name: req.body.name,
     description: req.body.description,
-    updatedAt: new Date()
+    updatedAt: new Date(),
   };
 
   res.json(items[itemIndex]);
@@ -54,11 +54,11 @@ exports.updateItem = (req, res) => {
 
 // DELETE item
 exports.deleteItem = (req, res) => {
-  const itemIndex = items.findIndex(i => i.id === parseInt(req.params.id));
+  const itemIndex = items.findIndex((i) => i.id === parseInt(req.params.id));
   if (itemIndex === -1) {
     return res.status(404).json({
       error: 'Not Found',
-      message: 'Item not found'
+      message: 'Item not found',
     });
   }
 
