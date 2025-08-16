@@ -97,27 +97,34 @@ const options = {
             title: {
               type: 'string',
               description: 'Task title',
+              example: 'Complete project documentation',
             },
             description: {
               type: 'string',
               description: 'Task description',
+              example: 'Write comprehensive documentation for the project including API docs and user guide',
             },
             dueDate: {
               type: 'string',
               format: 'date-time',
-              description: 'Task due date',
+              description: 'Task due date (must be in the future)',
+              example: '2024-12-31T23:59:59.000Z',
             },
             priority: {
               type: 'string',
               enum: Object.values(TaskPriority),
               description: 'Task priority',
+              example: 'high',
+              default: 'medium',
             },
             tags: {
               type: 'array',
               items: {
                 type: 'string',
               },
-              description: 'Task tags',
+              description: 'Task tags (at least one required)',
+              example: ['documentation', 'high-priority'],
+              minItems: 1,
             },
             dependencies: {
               type: 'array',
@@ -125,9 +132,11 @@ const options = {
                 type: 'string',
               },
               description: 'Task dependencies (IDs of other tasks)',
+              example: ['task-id-1', 'task-id-2'],
+              default: [],
             },
           },
-          required: ['title', 'description', 'dueDate', 'priority'],
+          required: ['title', 'description', 'dueDate', 'tags'],
         },
         UpdateTaskRequest: {
           type: 'object',
@@ -175,19 +184,88 @@ const options = {
                 code: {
                   type: 'string',
                   description: 'Error code',
+                  enum: [
+                    'VALIDATION_ERROR',
+                    'INVALID_STATE_TRANSITION',
+                    'DEPENDENCY_CYCLE',
+                    'BLOCKED_BY_DEPENDENCIES',
+                    'SELF_DEPENDENCY',
+                    'TASK_HAS_DEPENDENTS'
+                  ],
                 },
                 message: {
                   type: 'string',
                   description: 'Error message',
                 },
                 details: {
+                  type: 'array',
+                  items: {
+                    type: 'string'
+                  },
                   description: 'Additional error details',
                 },
               },
-              required: ['code', 'message'],
             },
-          },
-          required: ['error'],
+            statusTransition: {
+              summary: 'Invalid Status Transition',
+              value: {
+                error: {
+                  code: 'INVALID_STATE_TRANSITION',
+                  message: 'Cannot transition from pending to completed'
+                }
+              }
+            },
+            dependencyCycle: {
+              summary: 'Dependency Cycle',
+              value: {
+                error: {
+                  code: 'DEPENDENCY_CYCLE',
+                  message: 'Adding dependency would create a cycle'
+                }
+              }
+            },
+            blockedByDependencies: {
+              summary: 'Blocked by Dependencies',
+              value: {
+                error: {
+                  code: 'BLOCKED_BY_DEPENDENCIES',
+                  message: 'Cannot complete task while dependencies are incomplete'
+                }
+              }
+            }
+          }
+        },
+        PaginatedResponse: {
+          type: 'object',
+          properties: {
+            data: {
+              type: 'array',
+              items: {
+                $ref: '#/components/schemas/Task'
+              }
+            },
+            pagination: {
+              type: 'object',
+              properties: {
+                page: {
+                  type: 'integer',
+                  example: 1
+                },
+                pageSize: {
+                  type: 'integer',
+                  example: 10
+                },
+                total: {
+                  type: 'integer',
+                  example: 25
+                },
+                totalPages: {
+                  type: 'integer',
+                  example: 3
+                }
+              }
+            }
+          }
         },
       },
     },

@@ -15,7 +15,7 @@ export const errorHandler = (
 
   if (error instanceof TaskValidationError) {
     statusCode = 400;
-    errorCode = 'VALIDATION_ERROR';
+    errorCode = error.code || 'VALIDATION_ERROR';
     message = error.message;
   } else if (error instanceof TaskNotFoundError) {
     statusCode = 404;

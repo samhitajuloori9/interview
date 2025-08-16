@@ -17,11 +17,6 @@ export class TaskController {
   createTask = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const createRequest: CreateTaskRequest = req.body;
-
-      if (!createRequest.title || !createRequest.description || !createRequest.dueDate) {
-        throw new TaskValidationError('Missing required fields: title, description, dueDate');
-      }
-
       const task = this.taskService.createTask(createRequest);
       res.status(201).json(task);
     } catch (error) {
@@ -97,8 +92,52 @@ export class TaskController {
   deleteTask = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const { id } = req.params;
-      this.taskService.deleteTask(id);
+      const force = req.query.force === 'true';
+      this.taskService.deleteTask(id, force);
       res.status(204).send();
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  // Dependency management endpoints
+  setTaskDependencies = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const { id } = req.params;
+      const { dependencies } = req.body;
+
+      if (!Array.isArray(dependencies)) {
+        throw new TaskValidationError('Dependencies must be an array of task IDs');
+      }
+
+      const task = this.taskService.setTaskDependencies(id, dependencies);
+      res.json(task);
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  addTaskDependencies = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const { id } = req.params;
+      const { dependencies } = req.body;
+
+      if (!Array.isArray(dependencies)) {
+        throw new TaskValidationError('Dependencies must be an array of task IDs');
+      }
+
+      const task = this.taskService.addTaskDependencies(id, dependencies);
+      res.json(task);
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  removeTaskDependency = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const { id, depId } = req.params;
+      const task = this.taskService.removeTaskDependency(id, depId);
+      res.json(task);
     } catch (error) {
       next(error);
     }

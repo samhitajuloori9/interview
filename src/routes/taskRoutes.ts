@@ -1,8 +1,13 @@
 import { Router } from 'express';
 import { TaskController } from '../controllers/taskController';
+import { loadTaskById } from '../middleware/loadTask';
+const { validateTask, validateUpdateTask, validateStatusTransition } = require('../middleware/validation');
 
 const router = Router();
 const taskController = new TaskController();
+
+// Load task by ID for routes that need it
+router.param('id', loadTaskById('id'));
 
 /**
  * @swagger
@@ -30,7 +35,7 @@ const taskController = new TaskController();
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  */
-router.post('/', taskController.createTask);
+router.post('/', validateTask, taskController.createTask);
 
 /**
  * @swagger
@@ -125,7 +130,7 @@ router.get('/:id', taskController.getTask);
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  */
-router.put('/:id', taskController.updateTask);
+router.put('/:id', validateUpdateTask, validateStatusTransition, taskController.updateTask);
 
 /**
  * @swagger
@@ -166,7 +171,7 @@ router.put('/:id', taskController.updateTask);
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  */
-router.patch('/:id/status', taskController.updateTaskStatus);
+router.patch('/:id/status', validateStatusTransition, taskController.updateTaskStatus);
 
 /**
  * @swagger
@@ -181,9 +186,20 @@ router.patch('/:id/status', taskController.updateTaskStatus);
  *         schema:
  *           type: string
  *         description: Task ID
+ *       - in: query
+ *         name: force
+ *         schema:
+ *           type: boolean
+ *         description: Force delete even if task has dependents
  *     responses:
  *       204:
  *         description: Task deleted successfully
+ *       400:
+ *         description: Task has dependents and force not specified
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  *       404:
  *         description: Task not found
  *         content:
@@ -192,5 +208,156 @@ router.patch('/:id/status', taskController.updateTaskStatus);
  *               $ref: '#/components/schemas/ErrorResponse'
  */
 router.delete('/:id', taskController.deleteTask);
+
+// Dependency management routes
+/**
+ * @swagger
+ * /api/tasks/{id}/dependencies:
+ *   put:
+ *     summary: Replace task dependencies
+ *     tags: [Task Dependencies]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Task ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               dependencies:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                 description: Array of task IDs this task depends on
+ *             required:
+ *               - dependencies
+ *     responses:
+ *       200:
+ *         description: Dependencies updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Task'
+ *       400:
+ *         description: Validation error (cycle detected, self-dependency, etc.)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *             examples:
+ *               cycle:
+ *                 summary: Dependency cycle detected
+ *                 value:
+ *                   error: "Adding dependency would create a cycle"
+ *                   code: "DEPENDENCY_CYCLE"
+ *               self:
+ *                 summary: Self-dependency rejected
+ *                 value:
+ *                   error: "Task cannot depend on itself"
+ *                   code: "SELF_DEPENDENCY"
+ *       404:
+ *         description: Task not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+router.put('/:id/dependencies', taskController.setTaskDependencies);
+
+/**
+ * @swagger
+ * /api/tasks/{id}/dependencies:
+ *   post:
+ *     summary: Add dependencies to task
+ *     tags: [Task Dependencies]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Task ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               dependencies:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                 description: Array of task IDs to add as dependencies
+ *             required:
+ *               - dependencies
+ *     responses:
+ *       200:
+ *         description: Dependencies added successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Task'
+ *       400:
+ *         description: Validation error (cycle detected, self-dependency, etc.)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *             examples:
+ *               blocked:
+ *                 summary: Completion blocked by dependencies
+ *                 value:
+ *                   error: "Cannot complete task while dependencies are incomplete"
+ *                   code: "BLOCKED_BY_DEPENDENCIES"
+ *       404:
+ *         description: Task not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+router.post('/:id/dependencies', taskController.addTaskDependencies);
+
+/**
+ * @swagger
+ * /api/tasks/{id}/dependencies/{depId}:
+ *   delete:
+ *     summary: Remove a dependency from task
+ *     tags: [Task Dependencies]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Task ID
+ *       - in: path
+ *         name: depId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Dependency task ID to remove
+ *     responses:
+ *       200:
+ *         description: Dependency removed successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Task'
+ *       404:
+ *         description: Task not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+router.delete('/:id/dependencies/:depId', taskController.removeTaskDependency);
 
 export default router;

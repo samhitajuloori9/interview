@@ -8,6 +8,7 @@ import {
   PaginatedResponse,
 } from '../types/task';
 import { v4 as uuidv4 } from 'uuid';
+import { wouldCreateCycle, getDependents, areAllDependenciesCompleted, GraphNode } from '../utils/graph';
 
 export class TaskValidationError extends Error {
   constructor(
@@ -53,6 +54,11 @@ export class TaskService {
 
   // Method to clear all tasks (for testing)
   clearAllTasks(): void {
+    this.tasks.clear();
+  }
+
+  // Method to reset store for testing
+  resetStore(): void {
     this.tasks.clear();
   }
 
@@ -150,6 +156,23 @@ export class TaskService {
   updateTaskStatus(id: string, newStatus: TaskStatus): Task {
     const task = this.getTask(id);
 
+    // Check if task can be completed (all dependencies must be completed)
+    if (newStatus === TaskStatus.COMPLETED) {
+      const allTasks = Array.from(this.tasks.values());
+      const graphNodes = allTasks.map(t => ({
+        id: t.id,
+        dependencies: t.dependencies,
+        completed: t.status === TaskStatus.COMPLETED
+      }));
+      
+      if (!areAllDependenciesCompleted(graphNodes, id)) {
+        throw new TaskValidationError(
+          'Cannot complete task while dependencies are incomplete',
+          'BLOCKED_BY_DEPENDENCIES'
+        );
+      }
+    }
+
     // Special validation for archiving high priority tasks (check before state transition)
     if (
       newStatus === TaskStatus.ARCHIVED &&
@@ -175,10 +198,36 @@ export class TaskService {
     return updatedTask;
   }
 
-  deleteTask(id: string): void {
+  deleteTask(id: string, force: boolean = false): void {
     if (!this.tasks.has(id)) {
       throw new TaskNotFoundError(id);
     }
+
+    // Check if task is referenced as a dependency by others
+    if (!force) {
+      const allTasks = Array.from(this.tasks.values());
+      const dependents = getDependents(allTasks, id);
+      
+      if (dependents.length > 0) {
+        throw new TaskValidationError(
+          `Cannot delete task: it is referenced as a dependency by tasks ${dependents.join(', ')}. Use force=true to unlink and delete.`,
+          'TASK_HAS_DEPENDENTS'
+        );
+      }
+    } else {
+      // Force delete: remove this task from all dependency lists
+      this.tasks.forEach((task, taskId) => {
+        if (task.dependencies.includes(id)) {
+          const updatedTask = {
+            ...task,
+            dependencies: task.dependencies.filter(depId => depId !== id),
+            updatedAt: new Date()
+          };
+          this.tasks.set(taskId, updatedTask);
+        }
+      });
+    }
+
     this.tasks.delete(id);
   }
 
@@ -298,5 +347,66 @@ export class TaskService {
 
   getTasksByPriority(priority: TaskPriority): Task[] {
     return Array.from(this.tasks.values()).filter((task) => task.priority === priority);
+  }
+
+  // Dependency management methods
+  setTaskDependencies(id: string, dependencies: string[]): Task {
+    const task = this.getTask(id);
+    
+    // Validate all dependency IDs exist
+    for (const depId of dependencies) {
+      if (!this.tasks.has(depId)) {
+        throw new TaskNotFoundError(depId);
+      }
+    }
+
+    // Check for self-dependency
+    if (dependencies.includes(id)) {
+      throw new TaskValidationError('Task cannot depend on itself', 'SELF_DEPENDENCY');
+    }
+
+    // Check for cycles
+    const allTasks = Array.from(this.tasks.values());
+    const graphNodes: GraphNode[] = allTasks.map(t => ({
+      id: t.id,
+      dependencies: t.id === id ? dependencies : t.dependencies
+    }));
+
+    for (const depId of dependencies) {
+      if (wouldCreateCycle(graphNodes, id, depId)) {
+        throw new TaskValidationError('Adding dependency would create a cycle', 'DEPENDENCY_CYCLE');
+      }
+    }
+
+    const updatedTask: Task = {
+      ...task,
+      dependencies,
+      updatedAt: new Date(),
+    };
+
+    this.tasks.set(id, updatedTask);
+    return updatedTask;
+  }
+
+  addTaskDependencies(id: string, newDependencies: string[]): Task {
+    const task = this.getTask(id);
+    const currentDeps = task.dependencies || [];
+    const allDeps = [...new Set([...currentDeps, ...newDependencies])]; // Remove duplicates
+    
+    return this.setTaskDependencies(id, allDeps);
+  }
+
+  removeTaskDependency(id: string, dependencyId: string): Task {
+    const task = this.getTask(id);
+    const updatedDependencies = task.dependencies.filter(depId => depId !== dependencyId);
+    
+    const updatedTask: Task = {
+      ...task,
+      dependencies: updatedDependencies,
+      updatedAt: new Date(),
+    };
+
+    this.tasks.set(id, updatedTask);
+    return updatedTask;
   }
 }

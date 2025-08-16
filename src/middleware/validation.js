@@ -1,5 +1,6 @@
 const Joi = require('joi');
 const { TaskStatus, TaskPriority, VALID_STATUS_TRANSITIONS } = require('../models/task');
+const { TaskService } = require('../services/taskService');
 
 const taskSchema = Joi.object({
   title: Joi.string().required().trim(),
@@ -15,13 +16,69 @@ const taskSchema = Joi.object({
   dependencies: Joi.array().items(Joi.string()).default([]),
 });
 
+const updateTaskSchema = Joi.object({
+  title: Joi.string().trim(),
+  description: Joi.string().trim(),
+  dueDate: Joi.date().greater('now'),
+  status: Joi.string()
+    .valid(...Object.values(TaskStatus)),
+  priority: Joi.string()
+    .valid(...Object.values(TaskPriority)),
+  tags: Joi.array().items(Joi.string()).min(1),
+  dependencies: Joi.array().items(Joi.string()),
+});
+
 exports.validateTask = (req, res, next) => {
   const { error } = taskSchema.validate(req.body, { abortEarly: false });
 
   if (error) {
+    const firstError = error.details[0];
+    let message = 'Validation failed';
+    
+    // Special handling for tags field
+    if (firstError.path.includes('tags')) {
+      if (firstError.type === 'any.required') {
+        message = 'At least one tag is required';
+      } else if (firstError.type === 'array.min') {
+        message = 'At least one tag is required';
+      }
+    } else if (firstError.path.includes('dueDate') && firstError.type === 'date.greater') {
+      message = 'Due date must be in the future';
+    } else if (firstError.type === 'any.required') {
+      message = 'Missing required fields';
+    }
+
     return res.status(400).json({
-      error: 'Validation Error',
-      details: error.details.map((detail) => detail.message),
+      error: {
+        code: 'VALIDATION_ERROR',
+        message,
+        details: firstError.message,
+      }
+    });
+  }
+
+  next();
+};
+
+exports.validateUpdateTask = (req, res, next) => {
+  const { error } = updateTaskSchema.validate(req.body, { abortEarly: false });
+
+  if (error) {
+    const firstError = error.details[0];
+    let message = 'Validation failed';
+    
+    if (firstError.path.includes('tags') && firstError.type === 'array.min') {
+      message = 'At least one tag is required';
+    } else if (firstError.path.includes('dueDate') && firstError.type === 'date.greater') {
+      message = 'Due date must be in the future';
+    }
+
+    return res.status(400).json({
+      error: {
+        code: 'VALIDATION_ERROR',
+        message,
+        details: firstError.message,
+      }
     });
   }
 
@@ -29,33 +86,40 @@ exports.validateTask = (req, res, next) => {
 };
 
 exports.validateStatusTransition = (req, res, next) => {
-  const { status: currentStatus } = req.task;
+  if (!req.task) {
+    return res.status(404).json({
+      error: {
+        code: 'TASK_NOT_FOUND',
+        message: 'Task not found'
+      }
+    });
+  }
+
+  const { status: currentStatus, priority } = req.task;
   const { status: newStatus } = req.body;
 
   if (!newStatus) {
     return next();
   }
 
-  const validTransitions = VALID_STATUS_TRANSITIONS[currentStatus];
-  if (!validTransitions.includes(newStatus)) {
+  // Check for high priority archive restriction
+  if (newStatus === TaskStatus.ARCHIVED && priority === TaskPriority.HIGH && currentStatus !== TaskStatus.COMPLETED) {
     return res.status(400).json({
-      error: 'Invalid Status Transition',
-      message: `Cannot transition from ${currentStatus} to ${newStatus}`,
+      error: {
+        code: 'INVALID_STATE_TRANSITION',
+        message: 'High priority tasks can only be archived after completion'
+      }
     });
   }
 
-  // Check if dependencies are completed when transitioning to completed
-  if (newStatus === TaskStatus.COMPLETED) {
-    const incompleteDependencies = req.task.dependencies.filter(
-      (depId) => !tasks.get(depId) || tasks.get(depId).status !== TaskStatus.COMPLETED
-    );
-
-    if (incompleteDependencies.length > 0) {
-      return res.status(400).json({
-        error: 'Dependencies Not Completed',
-        message: 'All dependencies must be completed before marking task as completed',
-      });
-    }
+  const validTransitions = VALID_STATUS_TRANSITIONS[currentStatus];
+  if (!validTransitions.includes(newStatus)) {
+    return res.status(400).json({
+      error: {
+        code: 'INVALID_STATE_TRANSITION',
+        message: `Invalid transition ${currentStatus} -> ${newStatus}`,
+      }
+    });
   }
 
   next();
@@ -79,10 +143,27 @@ exports.validateQueryParams = (req, res, next) => {
 
   if (error) {
     return res.status(400).json({
-      error: 'Invalid Query Parameters',
-      details: error.details.map((detail) => detail.message),
+      error: {
+        code: 'VALIDATION_ERROR',
+        message: 'Invalid query parameters',
+        details: error.details.map((detail) => detail.message).join(', '),
+      }
     });
   }
 
   next();
+};
+
+// Middleware to load task into request for validation
+const taskService = new TaskService();
+
+exports.loadTask = (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const task = taskService.getTask(id);
+    req.task = task;
+    next();
+  } catch (error) {
+    next(error);
+  }
 };
