@@ -52,6 +52,15 @@ export class TaskService {
     return TaskService.instance;
   }
 
+  // Batch operation support methods
+  getAllTasksMap(): Map<string, Task> {
+    return new Map(this.tasks);
+  }
+
+  restoreTasksMap(tasksMap: Map<string, Task>): void {
+    this.tasks = new Map(tasksMap);
+  }
+
   // Method to clear all tasks (for testing)
   clearAllTasks(): void {
     this.tasks.clear();
@@ -137,6 +146,14 @@ export class TaskService {
 
   updateTask(id: string, request: UpdateTaskRequest): Task {
     const task = this.getTask(id);
+
+    // Check for self-dependency
+    if (request.dependencies?.includes(id)) {
+      throw new TaskValidationError(
+        'A task cannot depend on itself',
+        'SELF_DEPENDENCY'
+      );
+    }
 
     const updatedTask: Task = {
       ...task,

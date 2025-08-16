@@ -1,13 +1,53 @@
 import { Router } from 'express';
 import { TaskController } from '../controllers/taskController';
+import { BatchController } from '../controllers/batchController';
 import { loadTaskById } from '../middleware/loadTask';
 const { validateTask, validateUpdateTask, validateStatusTransition } = require('../middleware/validation');
 
 const router = Router();
 const taskController = new TaskController();
+const batchController = new BatchController();
 
 // Load task by ID for routes that need it
 router.param('id', loadTaskById('id'));
+
+/**
+ * @swagger
+ * /api/tasks/batch:
+ *   post:
+ *     summary: Execute batch operations
+ *     tags: [Batch]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [operations]
+ *             properties:
+ *               operations:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   required: [op]
+ *                   properties:
+ *                     op:
+ *                       type: string
+ *                       enum: [create, update, delete]
+ *                     id:
+ *                       type: string
+ *                     data:
+ *                       type: object
+ *                     force:
+ *                       type: boolean
+ *     responses:
+ *       200:
+ *         description: Batch operations completed successfully
+ *       400:
+ *         description: Batch operations failed and rolled back
+ */
+router.post('/batch', batchController.processBatch);
+
 
 /**
  * @swagger
@@ -36,6 +76,41 @@ router.param('id', loadTaskById('id'));
  *               $ref: '#/components/schemas/ErrorResponse'
  */
 router.post('/', validateTask, taskController.createTask);
+
+/**
+ * @swagger
+ * /api/batch:
+ *   post:
+ *     summary: Execute batch operations
+ *     tags: [Batch]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               operations:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   properties:
+ *                     op:
+ *                       type: string
+ *                       enum: [create, update, delete]
+ *                     id:
+ *                       type: string
+ *                     data:
+ *                       type: object
+ *                     force:
+ *                       type: boolean
+ *     responses:
+ *       200:
+ *         description: Batch operations completed successfully
+ *       400:
+ *         description: Batch operations failed and rolled back
+ */
+router.post('/api/tasks/batch', batchController.processBatch);
 
 /**
  * @swagger
