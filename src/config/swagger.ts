@@ -1,5 +1,6 @@
 import swaggerJsdoc from 'swagger-jsdoc';
 import { TaskStatus, TaskPriority } from '../types/task';
+import { TimeInterval } from '../utils/analytics';
 
 const options = {
   definition: {
@@ -7,8 +8,18 @@ const options = {
     info: {
       title: 'Summit Tasks API',
       version: '1.0.0',
-      description: 'A task management API with state machine workflow',
+      description: 'A task management API with state machine workflow and analytics',
     },
+    tags: [
+      {
+        name: 'Tasks',
+        description: 'Task management endpoints'
+      },
+      {
+        name: 'Analytics',
+        description: 'Task analytics and reporting endpoints'
+      }
+    ],
     servers: [
       {
         url: 'http://localhost:3000',
@@ -264,6 +275,65 @@ const options = {
                   example: 3
                 }
               }
+            }
+          }
+        },
+        CompletionRateData: {
+          type: 'object',
+          properties: {
+            date: {
+              type: 'string',
+              format: 'date',
+              description: 'The date or period this data point represents'
+            },
+            completed: {
+              type: 'integer',
+              description: 'Number of tasks completed in this period'
+            },
+            total: {
+              type: 'integer',
+              description: 'Total number of tasks in this period'
+            },
+            completionRate: {
+              type: 'number',
+              format: 'float',
+              description: 'Completion rate as a percentage (0-100)'
+            }
+          }
+        },
+        AvgCompletionTimeData: {
+          type: 'object',
+          properties: {
+            group: {
+              type: 'string',
+              description: 'The group this average represents (priority or overall)'
+            },
+            avgCompletionTimeHours: {
+              type: 'number',
+              format: 'float',
+              description: 'Average completion time in hours'
+            },
+            count: {
+              type: 'integer',
+              description: 'Number of tasks in this group'
+            }
+          }
+        },
+        TopTag: {
+          type: 'object',
+          properties: {
+            tag: {
+              type: 'string',
+              description: 'The tag name'
+            },
+            count: {
+              type: 'integer',
+              description: 'Number of tasks with this tag'
+            },
+            completionRate: {
+              type: 'number',
+              format: 'float',
+              description: 'Completion rate for tasks with this tag (0-100)'
             }
           }
         },

@@ -3,6 +3,7 @@ import cors from 'cors';
 import swaggerUi from 'swagger-ui-express';
 import { specs } from './config/swagger';
 import taskRoutes from './routes/taskRoutes';
+import analyticsRoutes from './routes/analyticsRoutes';
 import { errorHandler } from './middleware/errorHandler';
 import dotenv from 'dotenv';
 
@@ -28,6 +29,7 @@ app.get('/', (req, res) => {
 
 // API routes
 app.use('/api/tasks', taskRoutes);
+app.use('/api/analytics', analyticsRoutes);
 
 // 404 handler
 app.use((req, res) => {
